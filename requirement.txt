@@ -1,0 +1,4 @@
+mathplotlib
+pandas
+scikit-learn
+contractions
