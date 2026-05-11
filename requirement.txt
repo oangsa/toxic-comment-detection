@@ -1,4 +1,6 @@
-mathplotlib
+matplotlib
 pandas
 scikit-learn
 contractions
+numpy
+scipy
