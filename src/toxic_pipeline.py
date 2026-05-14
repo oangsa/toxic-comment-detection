@@ -26,9 +26,7 @@ LABEL_COLUMNS_TO_DROP = [
 FEATURE_COLUMNS = [
     "Character Count",
     "Profanity Count",
-    "Second-person Pronoun Count",
     "Repeated Character Pattern Count",
-    "Uppercase Ratio",
     "Identity-group Term Count",
     "URL Count",
     "Negation Count",
@@ -54,13 +52,27 @@ ALL_ENGINEERED_FEATURE_COLUMNS = [
     "Short/Unclear Without Toxic Signal Flag",
 ]
 
+PRESERVED_STOP_WORD_TOKENS = {
+    "i",
+    "me",
+    "my",
+    "you",
+    "your",
+    "yours",
+    "yourself",
+}
+
 WORD_TFIDF_CONFIG = {
     "ngram_range": (1, 2),
     "max_features": 10000,
     "min_df": 2,
     "max_df": 0.9,
     "sublinear_tf": True,
-    "stop_words": list(set(ENGLISH_STOP_WORDS) - {"not", "no", "never"}),
+    "stop_words": list(
+        set(ENGLISH_STOP_WORDS)
+        - {"not", "no", "never"}
+        - PRESERVED_STOP_WORD_TOKENS
+    ),
 }
 
 CHAR_TFIDF_CONFIG = {
@@ -140,6 +152,21 @@ NON_TOXIC_NEGATION_PATTERNS = [
     r"\bcannot\s+(?:hate|blame)\b",
     r"\bnot\s+trying\s+to\s+(?:attack|insult|offend)\b",
 ]
+AFFECTIONATE_PROFANITY_PATTERNS = [
+    r"\bi\s+fucking\s+love\s+(?:you|this|it|that|them|him|her)\b",
+    r"\bi\s+fucking\s+(?:love|adore|like)\b",
+    r"\bfucking\s+love\s+(?:you|this|it|that|them|him|her)\b",
+    r"\b(?:this|that|it)\s+is\s+fucking\s+(?:awesome|amazing|great|wonderful|fantastic|beautiful|lovely|cool|perfect|excellent|incredible)\b",
+    r"\bfucking\s+(?:awesome|amazing|great|wonderful|fantastic|beautiful|lovely|cool|perfect|excellent|incredible)\b",
+]
+NON_TOXIC_NEGATION_PROTECTION_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE) for pattern in NON_TOXIC_NEGATION_PATTERNS
+]
+AFFECTIONATE_PROFANITY_PROTECTION_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE) for pattern in AFFECTIONATE_PROFANITY_PATTERNS
+]
+NON_TOXIC_NEGATION_PLACEHOLDER = " supportivephrase "
+AFFECTIONATE_PROFANITY_PLACEHOLDER = " positiveemphasis "
 COMMON_SHORT_TOKENS = {
     "i",
     "me",
@@ -165,6 +192,20 @@ COMMON_SHORT_TOKENS = {
     "and",
 }
 
+SHORT_NEUTRAL_TOKENS = COMMON_SHORT_TOKENS | {
+    "hi",
+    "hello",
+    "thanks",
+    "thank",
+    "please",
+    "ok",
+    "okay",
+    "yes",
+    "nope",
+    "yep",
+    "u",
+}
+
 
 def resolve_src_dir() -> Path:
     return Path(__file__).resolve().parent
@@ -181,13 +222,44 @@ def resolve_data_path() -> Path:
 def clean_text(text: str) -> str:
     if not isinstance(text, str):
         return ""
+    text = expand_contractions(text)
     text = text.lower()
-    if contractions is not None:
-        text = contractions.fix(text)
     text = re.sub(r"http\S+|www\S+", " URL ", text)
     text = re.sub(r"[^a-z]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
+
+def expand_contractions(text: str) -> str:
+    if not isinstance(text, str):
+        return ""
+    if contractions is not None:
+        try:
+            return contractions.fix(text)
+        except IndexError:
+            normalized_text = text.replace("\u2018", "'").replace("\u2019", "'")
+            if normalized_text != text:
+                try:
+                    return contractions.fix(normalized_text)
+                except IndexError:
+                    pass
+            # Some multilingual or malformed strings can trigger an internal
+            # bounds-check bug in `contractions`/`textsearch`. Falling back to
+            # the original text keeps feature generation resilient.
+            return text
+    return text
+
+
+def protect_non_toxic_negations(text: str) -> str:
+    if not isinstance(text, str):
+        return ""
+
+    protected_text = expand_contractions(text)
+    for pattern in AFFECTIONATE_PROFANITY_PROTECTION_PATTERNS:
+        protected_text = pattern.sub(AFFECTIONATE_PROFANITY_PLACEHOLDER, protected_text)
+    for pattern in NON_TOXIC_NEGATION_PROTECTION_PATTERNS:
+        protected_text = pattern.sub(NON_TOXIC_NEGATION_PLACEHOLDER, protected_text)
+    return re.sub(r"\s+", " ", protected_text).strip()
 
 
 def make_term_pattern(terms: list[str]) -> re.Pattern[str]:
@@ -229,8 +301,24 @@ def short_unclear_without_toxic_signal(cleaned_text: str, profanity_count: int) 
     return int(too_short and profanity_count == 0)
 
 
-def build_all_engineered_features(raw_text: str) -> pd.DataFrame:
+def should_override_short_neutral_input(raw_text: str) -> bool:
     clean = clean_text(raw_text)
+    tokens = clean.split()
+    if not tokens or len(tokens) > 2:
+        return False
+
+    profanity_count = count_pattern(clean, PROFANITY_PATTERN)
+    if profanity_count > 0:
+        return False
+
+    return all(token in SHORT_NEUTRAL_TOKENS for token in tokens)
+
+
+def build_all_engineered_features(raw_text: str) -> pd.DataFrame:
+    raw_text = str(raw_text)
+    protected_text = protect_non_toxic_negations(raw_text)
+    clean = clean_text(protected_text)
+    clean_original = clean_text(raw_text)
     profanity = count_pattern(clean, PROFANITY_PATTERN)
     words = clean.split()
     avg_word_length = sum(len(word) for word in words) / len(words) if words else 0.0
@@ -249,8 +337,8 @@ def build_all_engineered_features(raw_text: str) -> pd.DataFrame:
         "Repeated Punctuation Count": repeated_punctuation_count(raw_text),
         "Identity-group Term Count": count_pattern(clean, IDENTITY_PATTERN),
         "URL Count": len(re.findall(r"http\S+|www\S+", raw_text)),
-        "Negation Count": count_pattern(clean, NEGATION_PATTERN),
-        "Non-toxic Negation Pattern Count": count_pattern(clean, NON_TOXIC_NEGATION_PATTERN),
+        "Negation Count": count_pattern(clean_original, NEGATION_PATTERN),
+        "Non-toxic Negation Pattern Count": count_pattern(clean_original, NON_TOXIC_NEGATION_PATTERN),
         "Short/Unclear Without Toxic Signal Flag": short_unclear_without_toxic_signal(clean, profanity),
     }
     return pd.DataFrame([row], columns=ALL_ENGINEERED_FEATURE_COLUMNS)
@@ -449,7 +537,8 @@ def _normalize_prediction_artifacts(artifacts: dict[str, Any]) -> dict[str, Any]
 def vectorize_comment(comment: str, artifacts: dict[str, Any]) -> Any:
     artifacts = _normalize_prediction_artifacts(artifacts)
     raw_text = str(comment)
-    clean = clean_text(raw_text)
+    protected_text = protect_non_toxic_negations(raw_text)
+    clean = clean_text(protected_text)
     engineered = build_all_engineered_features(raw_text)[artifacts["feature_columns"]]
     scaler = artifacts["scaler"]
 
@@ -457,13 +546,19 @@ def vectorize_comment(comment: str, artifacts: dict[str, Any]) -> Any:
     char_vectorizer = artifacts["char_vectorizer"]
 
     x_word = word_vectorizer.transform([clean])
-    x_char = char_vectorizer.transform([raw_text])
+    x_char = char_vectorizer.transform([protected_text])
     x_eng = csr_matrix(scaler.transform(engineered.values))
     return hstack([x_word, x_char, x_eng], format="csr")
 
 
 def predict_toxicity(comment: str, artifacts: dict[str, Any]) -> dict[str, Any]:
     model = artifacts["model"]
+    if should_override_short_neutral_input(comment):
+        return {
+            "label": "Not Toxic",
+            "probability": 0.15,
+        }
+
     features = vectorize_comment(comment, artifacts)
 
     label = int(model.predict(features)[0])
