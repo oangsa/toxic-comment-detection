@@ -1,9 +1,8 @@
 # Toxic Comment Classification Project
 
-This repository contains a toxic comment classification project built around a hybrid text pipeline:
+This repository contains a toxic comment classification project built around a text-and-features pipeline:
 
 - word-level TF-IDF
-- character-level TF-IDF
 - engineered toxicity features
 - a tuned Logistic Regression classifier
 
@@ -46,17 +45,17 @@ The historical training notebooks also report:
 
 The latest inference code has been improved with:
 
-- preserved pronoun tokens in word TF-IDF defaults
 - a smaller default selected-feature list in code
 - short neutral input protection
 - affectionate profanity protection
+- removal of the `char_wb` TF-IDF branch after false positives on very short inputs such as `you`
 
-These safeguards work immediately at inference time, but the currently saved artifacts were trained earlier and still reflect the older selected-feature metadata unless you retrain and resave them.
+This means the currently saved artifacts are now out of date. They were trained with an older feature contract and must be retrained and resaved before the CLI can use them again.
 
 In practice:
 
-- runtime protections already help reduce obvious false positives such as very short neutral inputs
-- a full retrain is still recommended if you want the saved model artifacts to match the latest code defaults exactly
+- the source code now reflects the intended word-only runtime pipeline
+- the existing saved `.pkl` files should be treated as historical artifacts until you retrain
 
 ## Quick Start
 

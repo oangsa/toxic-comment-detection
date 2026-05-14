@@ -14,9 +14,7 @@ At inference time, the pipeline does the following:
 2. Apply lightweight text protection rules before vectorization.
 3. Clean and normalize the text.
 4. Build engineered numeric features from the original comment.
-5. Transform text into:
-   - word-level TF-IDF features
-   - character-level TF-IDF features
+5. Transform text into word-level TF-IDF features.
 6. Scale the engineered features.
 7. Concatenate all feature blocks into one sparse matrix.
 8. Run a Logistic Regression classifier and return:
@@ -53,25 +51,9 @@ The word vectorizer uses:
 - `min_df=2`
 - `max_df=0.9`
 - `sublinear_tf=True`
+- English stop words except `not`, `no`, and `never`
 
-The current code also preserves a small set of pronoun tokens such as `i` and `you` in the vocabulary so short comments are less likely to lose all useful lexical context.
-
-### Character TF-IDF
-
-The character vectorizer uses:
-
-- `analyzer='char_wb'`
-- `ngram_range=(3, 5)`
-- `max_features=10000`
-- `min_df=2`
-- `sublinear_tf=True`
-
-Character features are especially useful for:
-
-- profanity fragments
-- elongated spelling
-- stylized abusive text
-- minor spelling variations
+The current code intentionally removes the older `char_wb` character TF-IDF branch. That branch helped with spelling variation, but it also pushed some very short neutral inputs such as `you` toward clearly toxic predictions, so the active pipeline is now word TF-IDF plus engineered features only.
 
 ## Engineered Features
 
@@ -124,7 +106,6 @@ The standard artifact set is stored under `src/`:
 
 - `best_model_final.pkl`
 - `best_model_word_vectorizer.pkl`
-- `best_model_char_vectorizer.pkl`
 - `best_model_scaler.pkl`
 - `best_model_metadata.pkl`
 
@@ -132,7 +113,6 @@ There is also an Optuna-based fallback set:
 
 - `optuna_feature_test_best_model.pkl`
 - `optuna_feature_test_word_vectorizer.pkl`
-- `optuna_feature_test_char_vectorizer.pkl`
 - `optuna_feature_test_scaler.pkl`
 - `optuna_feature_test_metadata.pkl`
 
@@ -143,9 +123,10 @@ The loader resolves the preferred files first and falls back when needed.
 This repository currently has an important but manageable mismatch:
 
 - the latest code defaults select a 7-feature engineered subset
-- the saved `best_model_final.pkl` metadata still references an older 9-feature selected set
+- the latest code has removed the character TF-IDF branch
+- the saved historical artifacts may still expect the older hybrid feature layout
 
-The loader contains compatibility logic to reduce scaler dimensions when needed, so inference still works. Still, retraining is recommended so the saved artifacts and current source code reflect the same feature contract.
+The loader still contains compatibility logic to reduce scaler dimensions when needed, but it now raises a clear error if a saved model still expects char features. Retraining is required so the saved artifacts and current source code reflect the same feature contract.
 
 ## CLI Entry Point
 

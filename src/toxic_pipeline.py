@@ -52,16 +52,6 @@ ALL_ENGINEERED_FEATURE_COLUMNS = [
     "Short/Unclear Without Toxic Signal Flag",
 ]
 
-PRESERVED_STOP_WORD_TOKENS = {
-    "i",
-    "me",
-    "my",
-    "you",
-    "your",
-    "yours",
-    "yourself",
-}
-
 WORD_TFIDF_CONFIG = {
     "ngram_range": (1, 2),
     "max_features": 10000,
@@ -71,16 +61,7 @@ WORD_TFIDF_CONFIG = {
     "stop_words": list(
         set(ENGLISH_STOP_WORDS)
         - {"not", "no", "never"}
-        - PRESERVED_STOP_WORD_TOKENS
     ),
-}
-
-CHAR_TFIDF_CONFIG = {
-    "analyzer": "char_wb",
-    "ngram_range": (3, 5),
-    "max_features": 10000,
-    "min_df": 2,
-    "sublinear_tf": True,
 }
 
 BEST_LOGISTIC_REGRESSION_CONFIG = {
@@ -96,13 +77,11 @@ BEST_LOGISTIC_REGRESSION_CONFIG = {
 
 MODEL_FILENAME = "best_model_final.pkl"
 WORD_VECTORIZER_FILENAME = "best_model_word_vectorizer.pkl"
-CHAR_VECTORIZER_FILENAME = "best_model_char_vectorizer.pkl"
 SCALER_FILENAME = "best_model_scaler.pkl"
 METADATA_FILENAME = "best_model_metadata.pkl"
 
 FALLBACK_MODEL_FILENAME = "optuna_feature_test_best_model.pkl"
 FALLBACK_WORD_VECTORIZER_FILENAME = "optuna_feature_test_word_vectorizer.pkl"
-FALLBACK_CHAR_VECTORIZER_FILENAME = "optuna_feature_test_char_vectorizer.pkl"
 FALLBACK_SCALER_FILENAME = "optuna_feature_test_scaler.pkl"
 FALLBACK_METADATA_FILENAME = "optuna_feature_test_metadata.pkl"
 
@@ -143,7 +122,9 @@ IDENTITY_TERMS = [
     "men",
 ]
 
-SECOND_PERSON_TERMS = ["you", "your", "yours", "yourself", "u"]
+# Temporarily exclude "you" from the direct second-person signal while keeping
+# the existing feature schema unchanged.
+SECOND_PERSON_TERMS = ["your", "yours", "yourself"]
 NEGATION_TERMS = ["not", "never", "no", "none", "cannot", "cant", "do not"]
 NON_TOXIC_NEGATION_PATTERNS = [
     r"\bnot\s+(?:stupid|dumb|idiot|moron|trash|wrong|bad|terrible|awful|useless)\b",
@@ -171,7 +152,6 @@ COMMON_SHORT_TOKENS = {
     "i",
     "me",
     "my",
-    "you",
     "your",
     "yours",
     "yourself",
@@ -352,10 +332,6 @@ def build_word_vectorizer() -> TfidfVectorizer:
     return TfidfVectorizer(**WORD_TFIDF_CONFIG)
 
 
-def build_char_vectorizer() -> TfidfVectorizer:
-    return TfidfVectorizer(**CHAR_TFIDF_CONFIG)
-
-
 def build_scaler() -> StandardScaler:
     return StandardScaler(with_mean=False)
 
@@ -409,15 +385,23 @@ def _resolve_existing_path(preferred: str, fallback: str | None = None) -> Path:
 def save_best_artifacts(
     model: Any,
     word_vectorizer: TfidfVectorizer,
-    char_vectorizer: TfidfVectorizer,
-    scaler: StandardScaler,
+    char_vectorizer: TfidfVectorizer | StandardScaler | None = None,
+    scaler: StandardScaler | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
+    if scaler is None and isinstance(char_vectorizer, StandardScaler):
+        scaler = char_vectorizer
+        char_vectorizer = None
+
+    if scaler is None:
+        raise ValueError("A fitted scaler is required when saving artifacts.")
+
     src_dir = resolve_src_dir()
     metadata_to_save = {
         "feature_columns": FEATURE_COLUMNS,
         "word_tfidf_config": WORD_TFIDF_CONFIG,
-        "char_tfidf_config": CHAR_TFIDF_CONFIG,
+        "uses_char_vectorizer": False,
+        "text_feature_blocks": ["word_tfidf"],
         "best_logistic_regression_config": BEST_LOGISTIC_REGRESSION_CONFIG,
     }
     if metadata:
@@ -426,14 +410,12 @@ def save_best_artifacts(
     paths = {
         "model": src_dir / MODEL_FILENAME,
         "word_vectorizer": src_dir / WORD_VECTORIZER_FILENAME,
-        "char_vectorizer": src_dir / CHAR_VECTORIZER_FILENAME,
         "scaler": src_dir / SCALER_FILENAME,
         "metadata": src_dir / METADATA_FILENAME,
     }
 
     _save_pickle(paths["model"], model)
     _save_pickle(paths["word_vectorizer"], word_vectorizer)
-    _save_pickle(paths["char_vectorizer"], char_vectorizer)
     _save_pickle(paths["scaler"], scaler)
     _save_pickle(paths["metadata"], metadata_to_save)
 
@@ -445,10 +427,6 @@ def load_best_artifacts() -> dict[str, Any]:
     word_vectorizer_path = _resolve_existing_path(
         WORD_VECTORIZER_FILENAME,
         FALLBACK_WORD_VECTORIZER_FILENAME,
-    )
-    char_vectorizer_path = _resolve_existing_path(
-        CHAR_VECTORIZER_FILENAME,
-        FALLBACK_CHAR_VECTORIZER_FILENAME,
     )
     scaler_path = _resolve_existing_path(SCALER_FILENAME, FALLBACK_SCALER_FILENAME)
 
@@ -473,19 +451,19 @@ def load_best_artifacts() -> dict[str, Any]:
     artifacts = {
         "model": _load_pickle(model_path),
         "word_vectorizer": _load_pickle(word_vectorizer_path),
-        "char_vectorizer": _load_pickle(char_vectorizer_path),
         "scaler": scaler,
         "feature_columns": selected_features,
         "metadata": metadata,
         "paths": {
             "model": model_path,
             "word_vectorizer": word_vectorizer_path,
-            "char_vectorizer": char_vectorizer_path,
             "scaler": scaler_path,
             "metadata": metadata_path,
         },
     }
-    return _normalize_prediction_artifacts(artifacts)
+    artifacts = _normalize_prediction_artifacts(artifacts)
+    _validate_artifact_feature_contract(artifacts)
+    return artifacts
 
 
 def _infer_feature_columns(artifacts: dict[str, Any]) -> list[str]:
@@ -534,6 +512,34 @@ def _normalize_prediction_artifacts(artifacts: dict[str, Any]) -> dict[str, Any]
     return artifacts
 
 
+def _expected_feature_count(artifacts: dict[str, Any]) -> int:
+    word_vectorizer = artifacts["word_vectorizer"]
+    vocabulary = getattr(word_vectorizer, "vocabulary_", None) or {}
+    feature_columns = artifacts["feature_columns"]
+    return len(vocabulary) + len(feature_columns)
+
+
+def _validate_artifact_feature_contract(artifacts: dict[str, Any]) -> None:
+    metadata = artifacts.get("metadata") or {}
+    model = artifacts["model"]
+    expected_feature_count = _expected_feature_count(artifacts)
+    model_feature_count = getattr(model, "n_features_in_", None)
+
+    if metadata.get("uses_char_vectorizer") is True:
+        raise ValueError(
+            "The saved artifacts still expect character TF-IDF features, but the "
+            "current pipeline has removed the char vectorizer. Retrain and resave "
+            "the artifacts with the latest src/toxic_pipeline.py pipeline."
+        )
+
+    if model_feature_count is not None and model_feature_count != expected_feature_count:
+        raise ValueError(
+            "The saved model feature shape does not match the current word-only "
+            f"pipeline (model expects {model_feature_count}, pipeline builds "
+            f"{expected_feature_count}). Retrain and resave the artifacts."
+        )
+
+
 def vectorize_comment(comment: str, artifacts: dict[str, Any]) -> Any:
     artifacts = _normalize_prediction_artifacts(artifacts)
     raw_text = str(comment)
@@ -543,12 +549,25 @@ def vectorize_comment(comment: str, artifacts: dict[str, Any]) -> Any:
     scaler = artifacts["scaler"]
 
     word_vectorizer = artifacts["word_vectorizer"]
-    char_vectorizer = artifacts["char_vectorizer"]
 
     x_word = word_vectorizer.transform([clean])
-    x_char = char_vectorizer.transform([protected_text])
     x_eng = csr_matrix(scaler.transform(engineered.values))
-    return hstack([x_word, x_char, x_eng], format="csr")
+    return hstack([x_word, x_eng], format="csr")
+
+
+def _predict_from_features(features: Any, model: Any) -> dict[str, Any]:
+    label = int(model.predict(features)[0])
+    probability = float(model.predict_proba(features)[0][1])
+    return {
+        "label": "Toxic" if label == 1 else "Not Toxic",
+        "probability": probability,
+    }
+
+
+def predict_toxicity_raw_model(comment: str, artifacts: dict[str, Any]) -> dict[str, Any]:
+    model = artifacts["model"]
+    features = vectorize_comment(comment, artifacts)
+    return _predict_from_features(features, model)
 
 
 def predict_toxicity(comment: str, artifacts: dict[str, Any]) -> dict[str, Any]:
@@ -560,11 +579,4 @@ def predict_toxicity(comment: str, artifacts: dict[str, Any]) -> dict[str, Any]:
         }
 
     features = vectorize_comment(comment, artifacts)
-
-    label = int(model.predict(features)[0])
-    probability = float(model.predict_proba(features)[0][1])
-
-    return {
-        "label": "Toxic" if label == 1 else "Not Toxic",
-        "probability": probability,
-    }
+    return _predict_from_features(features, model)

@@ -126,21 +126,21 @@ These are examples of a broader lesson:
 
 - a good overall F1 score does not guarantee intuitive behavior on short, context-light inputs
 
-That is why recent changes introduced inference-time protections without changing the broad model architecture.
+One especially important failure mode came from the old `char_wb` branch. A one-word input like `you` could be scored as highly toxic by the saved hybrid model, while the same pipeline without char features behaved much more reasonably. Because of that, the active runtime pipeline has now dropped character TF-IDF entirely.
 
 ## Recommended Next Tuning Step
 
 The most useful next experiment would be to retrain the final artifacts with the latest code defaults so the model reflects:
 
-- preserved pronoun tokens in the word vectorizer
+- word TF-IDF plus engineered features only
 - the updated selected-feature list
-- any future safeguarded feature contracts you choose to keep
+- the current short-input and positive-profanity safeguards
 
 After retraining, rerun:
 
 1. the text-only baseline
-2. the all-features baseline
+2. the word-plus-engineered-features baseline
 3. the current reduced subset
 4. an updated manual edge-case evaluation sheet
 
-That would give the cleanest apples-to-apples comparison between the older saved artifact set and the current safer runtime logic.
+That would give the cleanest apples-to-apples comparison between the older saved hybrid artifact set and the current safer word-only runtime logic.

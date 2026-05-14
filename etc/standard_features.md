@@ -13,13 +13,15 @@
 
 ## Ploy
 
-1. Character TF-IDF (3-5 grams, `char_wb`) **[Text vectorization: Text -> Vector]**
-2. Uppercase ratio
-3. Question mark count
-4. Repeated punctuation count (`!!`, `??`, `!?`)
-5. Identity-group term count (for hate context)
-6. URL flag/count
-7. Negation count (`not`, `never`, `no`)
-8. Sentiment polarity score (optional support feature)
+1. Uppercase ratio
+2. Question mark count
+3. Repeated punctuation count (`!!`, `??`, `!?`)
+4. Identity-group term count (for hate context)
+5. URL flag/count
+6. Negation count (`not`, `never`, `no`)
+7. Sentiment polarity score (optional support feature)
+8. Short neutral input protection at inference time
 
-This set is a balanced standard baseline: straightforward to build and usually strong for toxic classification tasks.
+Character TF-IDF was part of the older hybrid baseline, but it has been removed from the active runtime pipeline after causing unstable false positives on very short inputs such as `you`.
+
+This set is a balanced standard baseline for the current project direction: straightforward to build and usually strong for toxic classification tasks.
