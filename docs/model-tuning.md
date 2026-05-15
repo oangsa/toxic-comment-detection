@@ -28,7 +28,6 @@ The repository shows a progression of experiments:
 - baseline cleaning and EDA notebooks
 - handcrafted feature creation notebooks
 - `random_search_tuning.ipynb`
-- `random_search_tuning_v2.ipynb`
 - `GridSearch.ipynb`
 - `main_Optuna_automated.ipynb`
 - `optuna_feature_test.ipynb`
@@ -50,70 +49,93 @@ The notebooks reference at least:
 
 The final exported model family used in the current runtime is Logistic Regression.
 
-## Final Saved Logistic Regression Configuration
+## Current Saved-Artifact Comparison
 
-The saved best-model metadata reports:
+Re-evaluating the saved artifact families on the shared word-only pipeline and the same `random_state=42` 20% stratified split gives:
 
-- `penalty='l2'`
-- `solver='liblinear'`
-- `C=1.0645493016479186`
-- `class_weight={0: 1, 1: 3}`
-- `tol=0.0002226958973431528`
-- `max_iter=2000`
-- `random_state=42`
+- `Grid Search`
+  - feature count: `16`
+  - F1: `0.7682`
+  - precision: `0.7755`
+  - recall: `0.7611`
+  - ROC-AUC: `0.9610`
+- `Optuna Main`
+  - feature count: `16`
+  - F1: `0.7660`
+  - precision: `0.7600`
+  - recall: `0.7720`
+  - ROC-AUC: `0.9642`
+- `Random Search`
+  - feature count: `16`
+  - F1: `0.7622`
+  - precision: `0.7690`
+  - recall: `0.7555`
+  - ROC-AUC: `0.9619`
+- `Optuna Feature Test`
+  - feature count: `7`
+  - F1: `0.7600`
+  - precision: `0.7686`
+  - recall: `0.7516`
+  - ROC-AUC: `0.9652`
+- `Runtime Best Model`
+  - feature count: `7`
+  - F1: `0.7583`
+  - precision: `0.7746`
+  - recall: `0.7427`
+  - ROC-AUC: `0.9627`
 
-This weighting favors recall on the minority toxic class, which is helpful on an imbalanced dataset but also contributes to some false-positive pressure on ambiguous short inputs.
+By the project’s primary tuning metric, `Grid Search` is the current saved winner.
 
-## Saved Final Evaluation
+## Winner Profile
 
-The `best_model_final.pkl` metadata reports:
+The grid-search winner is a Logistic Regression family model trained on:
 
-- Test F1: `0.7923909478517547`
-- Test ROC-AUC: `0.9757904224394159`
+- word TF-IDF
+- all `16` engineered features
+- no character TF-IDF branch
 
-These are the best numbers directly attached to the final saved artifact set.
+It is not the smallest artifact family, but it currently gives the best F1 among the saved notebook outputs.
 
 ## Optuna Feature-Subset Results
 
-The saved Optuna metadata reports:
+The saved Optuna feature-selection metadata reports:
 
-- best CV F1: `0.7941291754774195`
+- best CV F1: `0.7682582718497781`
 - best LR params:
   - `penalty='l2'`
-  - `C=1.0645493016479186`
-  - `tol=0.0002226958973431528`
+  - `C=1.0567675307931639`
+  - `tol=0.00023605043231416352`
   - `class_weight={0: 1, 1: 3}`
 
 Feature-set comparison:
 
 - `Text only`
   - feature count: `0`
-  - F1: `0.789361`
-  - precision: `0.785621`
-  - recall: `0.793138`
-  - ROC-AUC: `0.974891`
+  - F1: `0.757535`
+  - precision: `0.778087`
+  - recall: `0.738040`
+  - ROC-AUC: `0.962072`
 - `Text + all engineered`
   - feature count: `16`
-  - F1: `0.791025`
-  - precision: `0.785366`
-  - recall: `0.796767`
-  - ROC-AUC: `0.975549`
+  - F1: `0.761605`
+  - precision: `0.765412`
+  - recall: `0.757836`
+  - ROC-AUC: `0.965151`
 - `Text + Optuna subset`
   - feature count: `7`
-  - F1: `0.792589`
-  - precision: `0.787810`
-  - recall: `0.797427`
-  - ROC-AUC: `0.975790`
+  - F1: `0.759967`
+  - precision: `0.768556`
+  - recall: `0.751567`
+  - ROC-AUC: `0.965192`
 
 ## Interpretation
 
-The tuning story is fairly clear:
+The tuning story now has two useful takeaways:
 
-- the text baseline was already strong
-- adding all engineered features helped slightly
-- selecting a smaller tuned subset helped a bit more
+- if the target is pure held-out F1 across the saved search methods, the current winner is grid search with all `16` engineered features
+- if the target is a more compact engineered subset, the Optuna feature-selection notebook gives the strongest `7`-feature result and the best ROC-AUC among the saved families
 
-So the engineered features appear useful, but only when kept focused.
+So the engineered features still matter, but the “best” answer depends on whether you optimize for top F1 or a smaller selective feature set.
 
 ## Why Recent Inference Changes Were Still Needed
 
@@ -139,8 +161,8 @@ The most useful next experiment would be to retrain the final artifacts with the
 After retraining, rerun:
 
 1. the text-only baseline
-2. the word-plus-engineered-features baseline
+2. the grid-search style word-plus-all-engineered baseline
 3. the current reduced subset
 4. an updated manual edge-case evaluation sheet
 
-That would give the cleanest apples-to-apples comparison between the older saved hybrid artifact set and the current safer word-only runtime logic.
+That would give the cleanest apples-to-apples comparison between the current saved winner, the compact subset option, and the current safer runtime logic.

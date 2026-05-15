@@ -70,16 +70,21 @@ This subset is more conservative than some earlier experiments. In particular, r
 
 ## Historical Feature Selection Results
 
-The Optuna feature selection notebook saved the following comparison:
+The current saved Optuna feature-selection notebook reports:
 
 - `Text only`
-  - F1: `0.7894`
+  - F1: `0.7575`
 - `Text + all engineered` with 16 features
-  - F1: `0.7910`
+  - F1: `0.7616`
 - `Text + Optuna subset` with 7 features
-  - F1: `0.7926`
+  - F1: `0.7600`
 
-This is a modest but real gain, and it suggests the engineered layer is most useful when it stays selective rather than simply adding every possible numeric signal.
+Within that notebook, the selective `7`-feature subset beats both the text-only baseline and the “use all 16 features” variant. So the feature-selection story still supports a focused engineered layer rather than adding every candidate signal.
+
+At the same time, the broader saved-model comparison across tuning methods now shows that the highest overall held-out F1 belongs to the grid-search artifact family using all `16` engineered features. This means:
+
+- the Optuna feature notebook gives the best compact subset story
+- the grid-search notebook gives the best overall saved F1 story
 
 ## Single-Feature Insights
 
@@ -104,7 +109,7 @@ Historically, the biggest drops came from removing:
 - `Non-toxic Negation Pattern Count`
 - `Character Count`
 
-This is useful context for understanding the original training decisions, even though the latest code now takes a safer stance on some of these same features during inference.
+This is useful context for understanding the training decisions, even though the latest code now takes a safer stance on some of these same features during inference and the overall best saved F1 currently comes from a different notebook path.
 
 ## Recent Safeguard Changes
 

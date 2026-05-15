@@ -102,31 +102,47 @@ Positive intensifier phrases like `I fucking love you` used to be strongly overc
 
 ## Saved Artifacts
 
-The standard artifact set is stored under `src/`:
+The repository currently contains multiple saved artifact families under `src/`:
 
-- `best_model_final.pkl`
-- `best_model_word_vectorizer.pkl`
-- `best_model_scaler.pkl`
-- `best_model_metadata.pkl`
+- grid-search winner
+  - `grid_search_best_model.pkl`
+  - `grid_search_word_vectorizer.pkl`
+  - `grid_search_scaler.pkl`
+- main Optuna search
+  - `optuna_best_model.pkl`
+  - `optuna_word_vectorizer.pkl`
+  - `optuna_scaler.pkl`
+- random search
+  - `random_search_best_model.pkl`
+  - `random_search_word_vectorizer.pkl`
+  - `random_search_scaler.pkl`
+- compact runtime/default set
+  - `best_model_final.pkl`
+  - `best_model_word_vectorizer.pkl`
+  - `best_model_scaler.pkl`
+  - `best_model_metadata.pkl`
+- Optuna feature-subset set
+  - `optuna_feature_test_best_model.pkl`
+  - `optuna_feature_test_word_vectorizer.pkl`
+  - `optuna_feature_test_scaler.pkl`
+  - `optuna_feature_test_metadata.pkl`
 
-There is also an Optuna-based fallback set:
-
-- `optuna_feature_test_best_model.pkl`
-- `optuna_feature_test_word_vectorizer.pkl`
-- `optuna_feature_test_scaler.pkl`
-- `optuna_feature_test_metadata.pkl`
-
-The loader resolves the preferred files first and falls back when needed.
+Among the currently saved experiments, the grid-search artifact family has the strongest held-out F1 on the aligned word-only evaluation split.
 
 ## Artifact Compatibility Note
 
-This repository currently has an important but manageable mismatch:
+The preferred current models are word-only TF-IDF plus engineered features, and the latest saved comparison was evaluated that way.
 
-- the latest code defaults select a 7-feature engineered subset
-- the latest code has removed the character TF-IDF branch
-- the saved historical artifacts may still expect the older hybrid feature layout
+There are still some historical `*_char_vectorizer.pkl` files in `src/`, but they should be treated as leftovers from older experiments rather than the active path.
 
-The loader still contains compatibility logic to reduce scaler dimensions when needed, but it now raises a clear error if a saved model still expects char features. Retraining is required so the saved artifacts and current source code reflect the same feature contract.
+The loader also contains compatibility logic to reduce scaler dimensions when a model uses a smaller engineered-feature subset than the full `16`-feature scaler layout.
+
+The main remaining project decision is not feature-contract breakage but promotion:
+
+- the runtime default artifact family is the compact `best_model_*` set
+- the best saved F1 currently belongs to the `grid_search_*` family
+
+Promoting one family as canonical would make the project story simpler.
 
 ## CLI Entry Point
 

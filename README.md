@@ -20,19 +20,42 @@ The current codebase includes:
 - saved model artifacts for local inference
 - a visualization notebook showing how raw CSV text becomes cleaned text and then engineered features
 
-## Current Model Snapshot
+## Current Saved-Model Snapshot
 
-The saved `best_model_final.pkl` metadata reports:
+Using the shared word-only pipeline and the same 20% stratified split, the saved model families currently compare as follows:
 
-- Test F1: `0.7924`
-- Test ROC-AUC: `0.9758`
-- Logistic Regression config:
-  - `penalty='l2'`
-  - `solver='liblinear'`
-  - `C=1.0645493016479186`
-  - `class_weight={0: 1, 1: 3}`
-  - `tol=0.0002226958973431528`
-  - `max_iter=2000`
+- `Grid Search`
+  - engineered features: `16`
+  - Test F1: `0.7682`
+  - Precision: `0.7755`
+  - Recall: `0.7611`
+  - ROC-AUC: `0.9610`
+- `Optuna Main`
+  - engineered features: `16`
+  - Test F1: `0.7660`
+  - Precision: `0.7600`
+  - Recall: `0.7720`
+  - ROC-AUC: `0.9642`
+- `Random Search`
+  - engineered features: `16`
+  - Test F1: `0.7622`
+  - Precision: `0.7690`
+  - Recall: `0.7555`
+  - ROC-AUC: `0.9619`
+- `Optuna Feature Test`
+  - engineered features: `7`
+  - Test F1: `0.7600`
+  - Precision: `0.7686`
+  - Recall: `0.7516`
+  - ROC-AUC: `0.9652`
+- `Runtime Best Model`
+  - engineered features: `7`
+  - Test F1: `0.7583`
+  - Precision: `0.7746`
+  - Recall: `0.7427`
+  - ROC-AUC: `0.9627`
+
+By the project’s primary tuning metric, the current saved winner is `grid_search_best_model.pkl`.
 
 The historical training notebooks also report:
 
@@ -43,19 +66,20 @@ The historical training notebooks also report:
 
 ## Important Note About Current Code vs Saved Artifacts
 
-The latest inference code has been improved with:
+The current notebooks and preferred saved artifacts now align on a word-only TF-IDF pipeline plus engineered features. The latest code also includes:
 
 - a smaller default selected-feature list in code
 - short neutral input protection
 - affectionate profanity protection
 - removal of the `char_wb` TF-IDF branch after false positives on very short inputs such as `you`
 
-This means the currently saved artifacts are now out of date. They were trained with an older feature contract and must be retrained and resaved before the CLI can use them again.
+There are still some historical `*_char_vectorizer.pkl` files in `src/`, but the latest comparison above is based on the current word-only pipeline and does not use those character artifacts.
 
 In practice:
 
-- the source code now reflects the intended word-only runtime pipeline
-- the existing saved `.pkl` files should be treated as historical artifacts until you retrain
+- the strongest saved F1 result is the grid-search artifact set
+- the compact 7-feature runtime artifact set remains useful for a smaller default footprint
+- any future final export should be retrained and resaved intentionally so one artifact family is promoted as canonical
 
 ## Quick Start
 
@@ -110,4 +134,4 @@ This repository is notebook-heavy by design. The typical project flow has been:
 5. save reusable artifacts
 6. expose a small local prediction interface
 
-If you want the cleanest next step for the project, retrain the final artifacts with the latest `src/toxic_pipeline.py` defaults so the documentation, code, and saved model stay aligned.
+If you want the cleanest next step for the project, retrain and promote one final artifact family, then point the runtime loader and docs at that single winner so the documentation, code, and saved model stay aligned.
