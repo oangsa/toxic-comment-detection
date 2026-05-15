@@ -24,12 +24,12 @@ LABEL_COLUMNS_TO_DROP = [
 ]
 
 FEATURE_COLUMNS = [
-    "Character Count",
+    "Question Mark Count",
     "Profanity Count",
-    "Repeated Character Pattern Count",
-    "Identity-group Term Count",
+    "Repeated Punctuation Count",
+    "Short/Unclear Without Toxic Signal Flag",
+    "Second-person Pronoun Count",
     "URL Count",
-    "Negation Count",
     "Non-toxic Negation Pattern Count",
 ]
 

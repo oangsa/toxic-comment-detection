@@ -58,13 +58,13 @@ Best saved Optuna feature-test settings:
 
 Selected engineered subset:
 
-- `Character Count`
+- `Question Mark Count`
 - `Profanity Count`
+- `Repeated Punctuation Count`
+- `Short/Unclear Without Toxic Signal Flag`
 - `Second-person Pronoun Count`
-- `Repeated Character Pattern Count`
-- `Uppercase Ratio`
-- `Identity-group Term Count`
 - `URL Count`
+- `Non-toxic Negation Pattern Count`
 
 Feature-set comparison:
 
@@ -81,17 +81,70 @@ Feature-set comparison:
 
 So the Optuna notebook still supports a compact `7`-feature subset story, but in the current word-only evaluation the full `16`-feature version edges it out on F1.
 
+### Single-Feature Additions
+
+The same notebook also reports the following single-feature results when each engineered feature is added individually on top of the text-only baseline:
+
+| Feature | F1 | Precision | Recall | ROC-AUC | Delta vs text only |
+|---|---:|---:|---:|---:|---:|
+| Question Mark Count | 0.759134 | 0.778896 | 0.740350 | 0.962465 | 0.001599 |
+| Profanity Count | 0.759085 | 0.774459 | 0.744309 | 0.962151 | 0.001550 |
+| Repeated Punctuation Count | 0.758924 | 0.778819 | 0.740020 | 0.962375 | 0.001389 |
+| Short/Unclear Without Toxic Signal Flag | 0.758796 | 0.778549 | 0.740020 | 0.962051 | 0.001261 |
+| Second-person Pronoun Count | 0.758725 | 0.775862 | 0.742329 | 0.963205 | 0.001191 |
+| URL Count | 0.758130 | 0.778977 | 0.738370 | 0.962039 | 0.000595 |
+| Non-toxic Negation Pattern Count | 0.758084 | 0.778512 | 0.738700 | 0.962072 | 0.000549 |
+| Uppercase Ratio | 0.758008 | 0.770805 | 0.745629 | 0.963933 | 0.000473 |
+| Average Word Length | 0.757617 | 0.777894 | 0.738370 | 0.962095 | 0.000082 |
+| Strong Toxic Signal Flag | 0.757586 | 0.765757 | 0.749588 | 0.961985 | 0.000051 |
+| Repeated Character Pattern Count | 0.757571 | 0.777431 | 0.738700 | 0.962477 | 0.000036 |
+| Exclamation Count | 0.757525 | 0.776968 | 0.739030 | 0.962462 | -0.000010 |
+| Character Count | 0.757453 | 0.778281 | 0.737710 | 0.962463 | -0.000082 |
+| Identity-group Term Count | 0.757406 | 0.777816 | 0.738040 | 0.962027 | -0.000128 |
+| Word Count | 0.757370 | 0.778474 | 0.737380 | 0.962389 | -0.000164 |
+| Negation Count | 0.757068 | 0.777469 | 0.737710 | 0.962223 | -0.000467 |
+
+### Drop-One Ablation
+
+The same notebook also reports the following `drop-one` results for the full `16`-feature setup:
+
+| Removed feature | F1 without feature | Delta vs all features |
+|---|---:|---:|
+| Second-person Pronoun Count | 0.757581 | -0.004024 |
+| Repeated Character Pattern Count | 0.760027 | -0.001578 |
+| Question Mark Count | 0.760927 | -0.000678 |
+| URL Count | 0.760974 | -0.000631 |
+| Average Word Length | 0.761352 | -0.000252 |
+| Short/Unclear Without Toxic Signal Flag | 0.761479 | -0.000126 |
+| Negation Count | 0.761605 | 0.000000 |
+| Exclamation Count | 0.761652 | 0.000047 |
+| Repeated Punctuation Count | 0.761731 | 0.000126 |
+| Character Count | 0.761731 | 0.000126 |
+| Non-toxic Negation Pattern Count | 0.761810 | 0.000205 |
+| Uppercase Ratio | 0.761825 | 0.000221 |
+| Identity-group Term Count | 0.762015 | 0.000410 |
+| Word Count | 0.762063 | 0.000458 |
+| Profanity Count | 0.762094 | 0.000489 |
+| Strong Toxic Signal Flag | 0.762811 | 0.001206 |
+
+Main takeaway:
+
+- removing `Second-person Pronoun Count` hurts the full model the most
+- several other features are neutral or slightly harmful in the full `16`-feature stack
+
 ## Main Notebook / Runtime Result
 
 The current runtime-oriented artifact family uses the selected `7`-feature subset:
 
-- `Character Count`
+- `Question Mark Count`
 - `Profanity Count`
-- `Repeated Character Pattern Count`
-- `Identity-group Term Count`
+- `Repeated Punctuation Count`
+- `Short/Unclear Without Toxic Signal Flag`
+- `Second-person Pronoun Count`
 - `URL Count`
-- `Negation Count`
 - `Non-toxic Negation Pattern Count`
+
+This is the current runtime feature contract reflected in `src/toxic_pipeline.py` and the compact default artifact family.
 
 Saved runtime/main metadata reports:
 

@@ -3,7 +3,7 @@
 This repository contains a toxic comment classification project built around a text-and-features pipeline:
 
 - word-level TF-IDF
-- engineered toxicity features
+- a compact engineered feature layer
 - a tuned Logistic Regression classifier
 
 The project started as notebook-driven experimentation on the Jigsaw toxic comment dataset and now includes a reusable inference pipeline in `src/toxic_pipeline.py` and a simple CLI entry point in `src/main.py`.
@@ -19,6 +19,16 @@ The current codebase includes:
 - random search, grid search, and Optuna-based tuning notebooks
 - saved model artifacts for local inference
 - a visualization notebook showing how raw CSV text becomes cleaned text and then engineered features
+
+The current runtime feature columns are:
+
+- `Question Mark Count`
+- `Profanity Count`
+- `Repeated Punctuation Count`
+- `Short/Unclear Without Toxic Signal Flag`
+- `Second-person Pronoun Count`
+- `URL Count`
+- `Non-toxic Negation Pattern Count`
 
 ## Current Saved-Model Snapshot
 
@@ -68,7 +78,7 @@ The historical training notebooks also report:
 
 The current notebooks and preferred saved artifacts now align on a word-only TF-IDF pipeline plus engineered features. The latest code also includes:
 
-- a smaller default selected-feature list in code
+- the 7-column runtime feature contract shown above
 - short neutral input protection
 - affectionate profanity protection
 - removal of the `char_wb` TF-IDF branch after false positives on very short inputs such as `you`
@@ -78,7 +88,7 @@ There are still some historical `*_char_vectorizer.pkl` files in `src/`, but the
 In practice:
 
 - the strongest saved F1 result is the grid-search artifact set
-- the compact 7-feature runtime artifact set remains useful for a smaller default footprint
+- the compact 7-feature runtime artifact set is the current default inference path
 - any future final export should be retrained and resaved intentionally so one artifact family is promoted as canonical
 
 ## Quick Start

@@ -55,11 +55,25 @@ The word vectorizer uses:
 
 The current code intentionally removes the older `char_wb` character TF-IDF branch. That branch helped with spelling variation, but it also pushed some very short neutral inputs such as `you` toward clearly toxic predictions, so the active pipeline is now word TF-IDF plus engineered features only.
 
+For a worked example of how cleaned text becomes a sparse numeric TF-IDF vector, see [word-vectorization-visual.md](word-vectorization-visual.md).
+
+For the actual code path behind cleaning, TF-IDF transformation, engineered-feature scaling, and final feature concatenation, see [word-vectorization-code.md](word-vectorization-code.md).
+
 ## Engineered Features
 
-The code maintains a larger engineered feature pool and a smaller selected subset.
+The active runtime pipeline uses this 7-column engineered feature set:
 
-Current full feature pool:
+- `Question Mark Count`
+- `Profanity Count`
+- `Repeated Punctuation Count`
+- `Short/Unclear Without Toxic Signal Flag`
+- `Second-person Pronoun Count`
+- `URL Count`
+- `Non-toxic Negation Pattern Count`
+
+The code also keeps a larger 16-feature engineering pool for older experiments, ablation work, and artifact compatibility.
+
+Extended feature pool:
 
 - `Character Count`
 - `Word Count`
@@ -78,15 +92,7 @@ Current full feature pool:
 - `Non-toxic Negation Pattern Count`
 - `Short/Unclear Without Toxic Signal Flag`
 
-Current code default selected subset:
-
-- `Character Count`
-- `Profanity Count`
-- `Repeated Character Pattern Count`
-- `Identity-group Term Count`
-- `URL Count`
-- `Negation Count`
-- `Non-toxic Negation Pattern Count`
+This runtime default was chosen to favor features that were helpful in the current single-feature Optuna analysis. Existing saved historical artifacts may still carry older exported feature subsets in their metadata until they are retrained and resaved.
 
 ## Runtime Safeguards Added Recently
 
@@ -135,7 +141,7 @@ The preferred current models are word-only TF-IDF plus engineered features, and 
 
 There are still some historical `*_char_vectorizer.pkl` files in `src/`, but they should be treated as leftovers from older experiments rather than the active path.
 
-The loader also contains compatibility logic to reduce scaler dimensions when a model uses a smaller engineered-feature subset than the full `16`-feature scaler layout.
+The loader also contains compatibility logic to reduce scaler dimensions when a model uses the 7-column runtime subset while the stored scaler was fit on the older `16`-feature layout.
 
 The main remaining project decision is not feature-contract breakage but promotion:
 
