@@ -67,9 +67,9 @@ WORD_TFIDF_CONFIG = {
 BEST_LOGISTIC_REGRESSION_CONFIG = {
     "penalty": "l2",
     "solver": "liblinear",
-    "C": 1.0645493016479186,
+    "C": 0.6719567619175353,
     "class_weight": {0: 1, 1: 3},
-    "tol": 0.0002226958973431528,
+    "tol": 1.096675267822891e-05,
     "max_iter": 2000,
     "random_state": 42,
     "n_jobs": None,
